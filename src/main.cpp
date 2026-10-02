@@ -1,72 +1,90 @@
-#include <iostream>
-#include <string>
-#include <cstdio>
-#include <cstdlib>
-#include <cstring>
+#include <ncurses.h>
+#include <locale.h>
 #include "./lib/dexlib.hpp"
 
-int main(int argc, char * argv[])
+int main(int argc, char ** argv) 
 {
-    char lines[MAX_LINES][MAX_LINE_LENGTH];
-    int lineCount = 0;
-    std::string fileName;
-    FILE * file;
+    setlocale(LC_ALL, "");
+    initscr();
+    cbreak();
+    noecho();
+    keypad(stdscr, TRUE);
+    curs_set(1);
 
-    dexlib::clearScreen();
-    dexlib::printLogo();
+    dexlib::drawCenteredHelloWindow("Welcome to the DexCPP editor!");
 
-    std::cout << "[Input the file name to edit]: " << std::endl;
-    std::cin >> fileName;
-    std::cin.ignore();
+    echo();
+    printw("\nEnter file name: ");
+    refresh();
 
-    file = fopen(fileName.c_str(), "a");
+    char fileName[256];
+    getstr(fileName);
+    noecho();
 
-    if (file == NULL) {
-        fprintf(stderr, T_RED "[FAILED]: Failed to create file: %s\n" T_RESET, fileName.c_str());
+    std::ofstream out_file(fileName);
+    if (!out_file.is_open()) {
+        endwin();
+        std::cout << T_RED << "[ERROR]: Could not open file " << T_RESET << fileName << std::endl;
         return 1;
     }
 
-    while (lineCount < MAX_LINES && std::fgets(lines[lineCount], MAX_LINE_LENGTH, file) != nullptr) {
-        lineCount++;
-    }
+    std::vector<std::string> lines;
+    int ch;
+    int lineNum = 1;
+    int currentLine = 0;
 
-    std::fclose(file);
+    while (true) {
+        clear();
+        printw("Editing: %s (Alt+S to save, Alt+Q to exit\n", fileName);
+        printw("---------------------------------------------------\n");
 
-    std::cout << T_CYAN << "[Start inputing text (Q for exit)]: " << T_RESET << std::endl;
-    while (lineCount < MAX_LINES) {
-        std::cout << lineCount + 1 << ": ";
+        for (size_t i = 0; i < lines.size(); ++i) {
+            printw("%d: %s\n", static_cast<int>(i + 1), lines[i].c_str());
+        } 
 
-        if (std::fgets(lines[lineCount], sizeof(lines[lineCount]), stdin) == NULL) {
-            fprintf(stderr, T_RED "[FAILED]: Failed to read line\n" T_RESET);
-            break;
+        move(currentLine + 2, 3);
+        clrtoeol();
+
+        refresh();
+
+        ch = getch();
+
+        if (ch == 27) {
+            ch = getch();
+            if (ch == 's') {
+                dexlib::saveFile(fileName, lines);
+                printw("\nFile saved! Press any key to exit...");
+                refresh();
+                getch();
+                break;
+            } 
+            else if (ch == 'q') {
+                break;
+            }
+        } 
+        else if (ch == '\n') {
+            lines.push_back("");
+            currentLine++;
+        } 
+        else if (ch == KEY_BACKSPACE || ch == 127) { // Backspace
+            if (!lines[currentLine].empty()) {
+                lines[currentLine].pop_back();
+            }
+        } 
+        else if (ch == KEY_UP && currentLine > 0) { // Стрелка вверх
+            currentLine--;
+        } 
+        else if (ch == KEY_DOWN && currentLine < static_cast<int>(lines.size()) - 1) { // Стрелка вниз
+            currentLine++;
+        } 
+        else if (ch >= 32 && ch <= 126) { // Печатаемые символы
+            if (lines.empty()) {
+                lines.push_back("");
+            }    
+            lines[currentLine] += static_cast<char>(ch);
         }
-
-        lines[lineCount][std::strcspn(lines[lineCount], "\n")] = 0;
-
-        if (strlen(lines[lineCount]) == 0 || strcmp(lines[lineCount], "Q") == 0) {
-            break;
-        }
-
-        std::strcpy(lines[lineCount], lines[lineCount]);
-        lineCount++;
-
-        if (lineCount >= MAX_LINES) {
-            std::cout << T_YELLOW << "[WARNING]: достигнуто максимальное количество строк. Завершите ввод" << T_RESET << std::endl;
-            break;
-        }
     }
 
-    file = fopen(fileName.c_str(), "w");
-    if (file == NULL) {
-        fprintf(stderr, T_RED "[FAILED]: Cannot open file for writing: %s\n" T_RESET, fileName.c_str());
-        return 1;
-    }
-
-    for (int i = 0; i < lineCount; i++) {
-        fprintf(file, "%s\n", lines[i]);
-    }
-
-    std::fclose(file);
-    std::cout << "Goodbye!" << std::endl;
+    endwin();
     return 0;
 }
