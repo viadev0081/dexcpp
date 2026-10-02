@@ -1,6 +1,13 @@
 #ifndef DEX_LIB_HPP
 #define DEX_LIB_HPP
 
+#include <iostream>
+#include <cstdio>
+#include <ncurses.h>
+#include <fstream>
+#include <string>
+#include <vector>
+
 #define T_RED     "\x1b[31m"
 #define T_GREEN   "\x1b[32m"
 #define T_BLUE    "\x1b[34m"
@@ -14,6 +21,11 @@
 
 namespace dexlib {
     void printLogo();
+    void drawCenteredHelloWindow(const std::string& text);
+    void saveFile(
+        const std::string& fileName, 
+        const std::vector<std::string>& lines
+    );
     void clearScreen();
     void addFile(const char * fileName);
     void displayContentInFile(const char * fileName);
