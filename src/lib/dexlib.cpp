@@ -1,6 +1,10 @@
 #include "./dexlib.hpp"
 #include <iostream>
 #include <cstdio>
+#include <ncurses.h>
+#include <fstream>
+#include <string>
+#include <vector>
 
 #ifdef _WIN32
 #include <windows.h>
@@ -18,6 +22,36 @@ namespace dexlib {
         std::cout << T_MAGENTA << "██       ██  ██              ██     ██   ██          ██        ██      " << T_RESET << std::endl;
         std::cout << T_MAGENTA << "██████████    ████████████   ██     ██    █████████  ██        ██      " << T_RESET << std::endl;
         std::cout << "Welcome to the DexCPP Editor!" << std::endl;
+    }
+
+    void drawCenteredHelloWindow(const std::string& text) {
+        int max_y, max_x;
+        getmaxyx(stdscr, max_y, max_x);
+
+        int winHeight = 5;
+        int winWidth = text.length() + 4;
+        int start_y = (max_y - winHeight) / 2;
+        int start_x = (max_x - winWidth) / 2;
+
+        WINDOW * win = newwin(winHeight, winWidth, start_y, start_x);
+        box(win, 0, 0);
+        mvwprintw(win, 2, 2, text.c_str());
+        wrefresh(win);
+        napms(1500); 
+        delwin(win);
+    }
+
+    void saveFile(
+        const std::string& fileName, 
+        const std::vector<std::string>& lines
+    ) {
+        std::ofstream file(fileName);
+        if (file.is_open()) {
+            for (const auto& line : lines) {
+                file << line << std::endl;
+            }
+            file.close();
+        }
     }
 
     void clearScreen() {
