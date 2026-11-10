@@ -663,4 +663,230 @@ bool saveFile(
     return out.good();
 }
 
+void recentlyFilesWindow(const std::vector<std::string>& recents) {
+    if (LINES < 6 || COLS < 24) {
+        return;
+    }
+
+    int height = LINES - 4;
+    if (height > 20) {
+        height = 20;
+    }
+    if (height < 6) {
+        return;
+    }
+
+    int width = COLS - 8;
+    if (width > 78) {
+        width = 78;
+    }
+    if (width < 24) {
+        width = COLS;
+    }
+
+    int starty = (LINES - height) / 2;
+    int startx = (COLS - width) / 2;
+
+    WINDOW * win = newwin(height, width, starty, startx);
+    if (win == nullptr) {
+        return;
+    }
+
+    keypad(win, TRUE);
+
+    const Theme& t = theme();
+    const int count = static_cast<int>(recents.size());
+    const int listRows = height - 3;  /* rows 1 .. height-3 */
+
+    int selected = count > 0 ? 0 : -1;
+    int top = 0;
+    bool done = false;
+
+    while (!done) {
+        werase(win);
+
+        wattron(win, t.border);
+        box(win, 0, 0);
+        wattroff(win, t.border);
+
+        const std::string title = " Recent files ";
+        const std::string titleText = truncateRight(title, width - 4);
+        int titleX = (width - textWidth(titleText)) / 2;
+        if (titleX < 1) {
+            titleX = 1;
+        }
+
+        wattron(win, t.accent);
+        mvwaddnstr(win, 0, titleX, titleText.c_str(),
+                   static_cast<int>(titleText.size()));
+        wattroff(win, t.accent);
+
+        if (count == 0) {
+            const std::string emptyText = "No recent files";
+            int emptyX = (width - textWidth(emptyText)) / 2;
+            if (emptyX < 1) {
+                emptyX = 1;
+            }
+
+            wattron(win, t.dim);
+            mvwaddnstr(
+                win, 
+                height / 2, 
+                emptyX, 
+                emptyText.c_str(),
+                static_cast<int>(emptyText.size())
+
+            );
+
+            wattroff(win, t.dim);
+        }
+        else {
+            if (selected < 0) {
+                selected = 0;
+            }
+
+            if (selected >= count) {
+                selected = count - 1;
+            }
+
+            if (selected < top) {
+                top = selected;
+            }
+
+            if (selected >= top + listRows) {
+                top = selected - listRows + 1;
+            }
+
+            int maxTop = count - listRows;
+            if (maxTop < 0) {
+                maxTop = 0;
+            }
+
+            if (top > maxTop) {
+                top = maxTop;
+            }
+
+            if (top < 0) {
+                top = 0;
+            }
+
+            for (int row = 0; row < listRows; ++row) {
+                int index = top + row;
+                if (index >= count) {
+                    break;
+                }
+
+                int y = 1 + row;
+                bool current = index == selected;
+
+                std::string line = " " + std::to_string(index + 1) + "  " +
+                                   baseName(recents[index]);
+                std::string visible = truncateRight(line, width - 2);
+
+                if (current) {
+                    wattron(win, A_REVERSE);
+                    mvwhline(win, y, 1, ' ', width - 2);
+                    mvwaddnstr(
+                        win, y, 1, 
+                        visible.c_str(),
+                        static_cast<int>(visible.size())
+                    );
+                    wattroff(win, A_REVERSE);
+                }
+                else {
+                    wattron(win, t.text);
+                    mvwaddnstr(
+                        win, y, 1, 
+                        visible.c_str(),
+                        static_cast<int>(visible.size())
+                    );
+                    wattroff(win, t.text);
+                }
+            }
+        }
+
+        const std::string hint = recents.empty()
+            ? " Esc close "
+            : " \u2191/\u2193 scroll \u00b7 Esc close ";
+        const std::string hintText = truncateRight(hint, width - 2);
+
+        wattron(win, t.dim);
+        mvwaddnstr(
+            win,
+            height - 2,
+            1,
+            hintText.c_str(),
+            static_cast<int>(hintText.size())
+        );
+        wattroff(win, t.dim);
+
+        wrefresh(win);
+
+        int ch = wgetch(win);
+        switch (ch) {
+            case ERR:
+                done = true;
+            break;
+
+            case 27:  /* Esc */
+            case 'q':
+            case 'Q':
+            case '\n':
+            case '\r':
+            case KEY_ENTER:
+                done = true;
+            break;
+
+            case KEY_UP:
+            case 'k':
+                if (selected > 0) {
+                    --selected;
+                }
+            break;
+
+            case KEY_DOWN:
+            case 'j':
+                if (selected + 1 < count) {
+                    ++selected;
+                }
+            break;
+
+            case KEY_PPAGE:
+                selected -= listRows;
+                if (selected < 0) {
+                    selected = 0;
+                }
+            break;
+
+            case KEY_NPAGE:
+                selected += listRows;
+                if (selected >= count) {
+                    selected = count - 1;
+                }
+            break;
+
+            case KEY_HOME:
+            case 'g':
+                selected = 0;
+            break;
+
+            case KEY_END:
+            case 'G':
+                selected = count - 1;
+            break;
+
+            case KEY_RESIZE:
+                done = true;
+            break;
+
+            default:
+            break;
+        }
+    }
+
+    delwin(win);
+    touchwin(stdscr);
+    refresh();
+}
+
 }  // namespace dexlib
