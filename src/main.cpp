@@ -31,7 +31,7 @@ std::string trim(const std::string& s) {
             s[first] == '\n')) {
         ++first;
     }
- 
+
     std::size_t last = s.size();
     while (last > first &&
            (s[last - 1] == ' ' || s[last - 1] == '\t' ||
@@ -130,7 +130,7 @@ void saveRecents(const std::vector<std::string>& recents) {
 }
 
 void addRecent(
-    std::vector<std::string>& recents, 
+    std::vector<std::string>& recents,
     const std::string& path
 ) {
     if (path.empty()) {
@@ -152,8 +152,8 @@ void addRecent(
 }
 
 void setMessage(
-    App& app, 
-    const std::string& text, 
+    App& app,
+    const std::string& text,
     int style = 0
 ) {
     app.message = text;
@@ -233,9 +233,9 @@ void insertText(Editor& ed, const std::string& text) {
     if (text.empty()) {
         return;
     }
-    
+
     pushUndo(ed);
-    
+
     if (ed.lines.empty()) {
         ed.lines.push_back("");
     }
@@ -273,7 +273,7 @@ void backspace(Editor& ed) {
         ed.cx = prev;
         ed.modified = true;
         ed.desiredCol = -1;
-    } 
+    }
     else if (ed.cy > 0) {
         pushUndo(ed);
         std::size_t joinAt = ed.lines[ed.cy - 1].size();
@@ -294,7 +294,7 @@ void deleteForward(Editor& ed) {
         ed.lines[ed.cy].erase(ed.cx, next - ed.cx);
         ed.modified = true;
         ed.desiredCol = -1;
-    } 
+    }
     else if (ed.cy + 1 < static_cast<int>(ed.lines.size())) {
         pushUndo(ed);
         ed.lines[ed.cy] += ed.lines[ed.cy + 1];
@@ -321,12 +321,12 @@ void moveLeft(Editor& ed) {
     normalizeCursor(ed);
     if (ed.cx > 0) {
         ed.cx = dexlib::utf8Prev(ed.lines[ed.cy], ed.cx);
-    } 
+    }
     else if (ed.cy > 0) {
         --ed.cy;
         ed.cx = ed.lines[ed.cy].size();
     }
-    
+
     ed.desiredCol = -1;
 }
 
@@ -334,12 +334,12 @@ void moveRight(Editor& ed) {
     normalizeCursor(ed);
     if (ed.cx < ed.lines[ed.cy].size()) {
         ed.cx = dexlib::utf8Next(ed.lines[ed.cy], ed.cx);
-    } 
+    }
     else if (ed.cy + 1 < static_cast<int>(ed.lines.size())) {
         ++ed.cy;
         ed.cx = 0;
     }
-    
+
     ed.desiredCol = -1;
 }
 
@@ -400,7 +400,7 @@ bool doSave(App& app) {
 }
 
 void doSaveAs(
-    App& app, 
+    App& app,
     const std::string& rawPath
 ) {
     std::string path = dexlib::absolutePath(trim(rawPath));
@@ -466,8 +466,8 @@ bool doNew(App& app, const std::string& rawName) {
 /*  Prompts and commands                                              */
 /* ------------------------------------------------------------------ */
 void beginPrompt(
-    App& app, 
-    PromptKind kind, 
+    App& app,
+    PromptKind kind,
     const std::string& label
 ) {
     app.returnMode = app.mode;
@@ -499,15 +499,15 @@ std::pair<std::string, std::string> splitCommand(const std::string& line) {
 
     std::string name = text.substr(0, space);
     std::string rest = space < text.size() ? trim(text.substr(space + 1)) : "";
-    
-    return { 
-        lowerAscii(name), 
+
+    return {
+        lowerAscii(name),
         rest
     };
 }
 
 void executeCommand(
-    App& app, 
+    App& app,
     const std::string& commandLine
 ) {
     auto parts = splitCommand(commandLine);
@@ -521,14 +521,14 @@ void executeCommand(
     if (name == "w" || name == "write") {
         if (!rest.empty()) {
             doSaveAs(app, rest);
-        } 
+        }
         else if (app.ed.path.empty()) {
             beginPrompt(app, PromptKind::SaveAs, "Save as: ");
-        } 
+        }
         else {
             doSave(app);
         }
-        
+
         return;
     }
 
@@ -541,21 +541,21 @@ void executeCommand(
         app.afterSaveQuit = true;
         if (!rest.empty()) {
             doSaveAs(app, rest);
-        } 
+        }
         else if (app.ed.path.empty()) {
             beginPrompt(app, PromptKind::SaveAs, "Save as: ");
-        } 
+        }
         else {
             doSave(app);
         }
-    
+
         return;
     }
 
     if (name == "q" || name == "quit") {
         if (app.ed.modified) {
             setMessage(app, "Unsaved changes — use :q! to force quit", 1);
-        } 
+        }
         else {
             app.running = false;
         }
@@ -571,19 +571,25 @@ void executeCommand(
     if (name == "e" || name == "edit" || name == "e!") {
         if (rest.empty()) {
             beginPrompt(app, PromptKind::Open, "Open file: ");
-        } 
+        }
         else if (app.ed.modified && name != "e!") {
             setMessage(app, "Unsaved changes — save first or use :e!", 1);
-        } 
+        }
         else if (doOpen(app, rest)) {
             app.dashboard = false;
         }
-    
+
         return;
     }
 
     if (name == "n" || name == "new") {
         beginPrompt(app, PromptKind::New, "New file: ");
+        return;
+    }
+
+    /* Recently Files Window */
+    if (name == "rf") {
+        dexlib::recentlyFilesWindow(app.recents);
         return;
     }
 
@@ -593,7 +599,7 @@ void executeCommand(
                    ":q quit · ^S save · ^O open · ^Z undo",
                    0
         );
-    
+
         return;
     }
 
@@ -650,10 +656,10 @@ void deleteInputChar(std::string& input) {
 /*  Rendering helpers                                                 */
 /* ------------------------------------------------------------------ */
 void drawTitleBar(
-        int width, 
+        int width,
         const std::string& title,
-        const std::string& right, 
-        int titleAttr, 
+        const std::string& right,
+        int titleAttr,
         int rightAttr
 ) {
     if (width < 8) {
@@ -697,10 +703,10 @@ void drawEditor(App& app) {
 
     const std::string name =
         app.ed.path.empty() ? "[No Name]" : dexlib::baseName(app.ed.path);
-    
+
     const std::string title =
         " DexCPP · " + name + (app.ed.modified ? " [+]" : "") + " ";
-    
+
     const std::string right = " " + modeLabel(app) + " ";
     drawTitleBar(width, title, right, t.accent, t.command);
 
@@ -725,7 +731,7 @@ void drawEditor(App& app) {
     if (app.ed.cy < app.ed.scrollY) {
         app.ed.scrollY = app.ed.cy;
     }
-    
+
     if (app.ed.cy >= app.ed.scrollY + contentRows) {
         app.ed.scrollY = app.ed.cy - contentRows + 1;
     }
@@ -738,7 +744,7 @@ void drawEditor(App& app) {
     if (cursorCol < app.ed.scrollX) {
         app.ed.scrollX = cursorCol;
     }
-    
+
     if (cursorCol >= app.ed.scrollX + textCols) {
         app.ed.scrollX = cursorCol - textCols + 1;
     }
@@ -770,10 +776,10 @@ void drawEditor(App& app) {
         attrset(0);
 
         std::string expanded = dexlib::expandTabs(app.ed.lines[index], kTabStop);
-        
+
         std::string visible = dexlib::sliceColumns(
-                    expanded, 
-                    app.ed.scrollX, 
+                    expanded,
+                    app.ed.scrollX,
                     textCols
         );
 
@@ -795,12 +801,12 @@ void drawEditor(App& app) {
     std::string rightStatus = " Ln " + std::to_string(app.ed.cy + 1) +
                               ", Col " + std::to_string(shownCol) +
                               "   UTF-8   " + std::to_string(percent) + "% ";
-    
+
     int rightWidth = dexlib::textWidth(rightStatus);
     if (rightWidth > width - 8) {
         rightStatus = " Ln " + std::to_string(app.ed.cy + 1) + ", Col " +
                       std::to_string(shownCol) + " ";
-        
+
         rightWidth = dexlib::textWidth(rightStatus);
     }
     if (rightWidth > width - 6) {
@@ -810,9 +816,9 @@ void drawEditor(App& app) {
 
     std::string leftStatus = " " + modeLabel(app) + "  " + name +
                              (app.ed.modified ? " +" : "");
-    
+
     int leftMax = width - 3 - rightWidth;
-    
+
     if (leftMax > 0) {
         dexlib::putClipped(statusY, 2, leftMax, leftStatus, t.status);
     }
@@ -831,13 +837,13 @@ void drawEditor(App& app) {
         dexlib::putClipped(commandY, 2, width - 4, line, t.command);
         cursorY = commandY;
         cursorX = 2 + dexlib::textWidth(line);
-    } 
+    }
     else if (!app.message.empty()) {
         dexlib::putClipped(commandY, 2, width - 4, app.message,
                            messageAttr(app));
         cursorY = contentTop + (app.ed.cy - app.ed.scrollY);
         cursorX = textX + (cursorCol - app.ed.scrollX);
-    } 
+    }
     else {
         std::string hint =
             app.mode == Mode::Insert
@@ -845,7 +851,7 @@ void drawEditor(App& app) {
                   "^Q/F10 quit"
                 : " i insert · a append · o new line · : command · ^S save · "
                   "^Q quit · u undo";
-    
+
         dexlib::putClipped(commandY, 2, width - 4, hint, t.dim);
         cursorY = contentTop + (app.ed.cy - app.ed.scrollY);
         cursorX = textX + (cursorCol - app.ed.scrollX);
@@ -854,7 +860,7 @@ void drawEditor(App& app) {
     if (app.prompting) {
         curs_set(1);
         move(cursorY, clampInt(cursorX, 2, width - 2));
-    } 
+    }
     else {
         curs_set(1);
         int screenY = clampInt(contentTop + (app.ed.cy - app.ed.scrollY),
@@ -882,13 +888,13 @@ void drawDashboard(App& app) {
 
     if (height < 9 || width < 34) {
         dexlib::putCentered(
-                height / 2, 
-                0, 
+                height / 2,
+                0,
                 width,
-                "Terminal too small for dashboard", 
+                "Terminal too small for dashboard",
                 t.error
         );
-    
+
         refresh();
         return;
     }
@@ -915,7 +921,7 @@ void drawDashboard(App& app) {
         row.attr = attr;
         rows.push_back(row);
     };
-    
+
     auto addMenu = [&](const std::string& key, const std::string& label) {
         DashRow row;
         row.kind = DashRow::Kind::Menu;
@@ -935,7 +941,7 @@ void drawDashboard(App& app) {
         for (const char * line : logo) {
             addText(line, t.logo);
         }
-    } 
+    }
     else if (smallLogo) {
         addText("D e x C P P", t.logo);
     }
@@ -949,6 +955,7 @@ void drawDashboard(App& app) {
     addMenu("[ n ]", "New file");
     addMenu("[ o ]", "Open file");
     addMenu("[ q ]", "Quit");
+    addMenu("[ r ]", "Recently Files");
 
     if (canShowRecents) {
         int room = contentRows - static_cast<int>(rows.size()) - 2;
@@ -996,15 +1003,14 @@ void drawDashboard(App& app) {
     int menuBlock = 0;
     for (const DashRow& row : rows) {
         if (row.kind == DashRow::Kind::Menu) {
-            int total = dexlib::textWidth(row.key) + 3 +
-                        dexlib::textWidth(row.label);
+            int total = dexlib::textWidth(row.key) + 3 + dexlib::textWidth(row.label);
 
             if (total > menuBlock) {
             menuBlock = total;
             }
         }
     }
-    
+
     int menuStartX = 1 + (width - 2 - menuBlock) / 2;
     if (menuStartX < 1) {
         menuStartX = 1;
@@ -1018,17 +1024,23 @@ void drawDashboard(App& app) {
 
         if (row.kind == DashRow::Kind::Text) {
             dexlib::putCentered(y, 1, width - 2, row.text, row.attr);
-        } 
+        }
         else {
             int keyWidth = dexlib::textWidth(row.key);
-            dexlib::putClipped(y, menuStartX, width - menuStartX - 1,
-                               row.key, t.accent);
+            dexlib::putClipped(
+                y,
+                menuStartX,
+                width - menuStartX - 1,
+                row.key,
+                t.accent
+            );
+
             int labelX = menuStartX + keyWidth + 3;
             if (labelX < width - 1) {
                 dexlib::putClipped(
-                    y, 
-                    labelX, 
-                    width - labelX - 1, 
+                    y,
+                    labelX,
+                    width - labelX - 1,
                     row.label,
                     t.text
                 );
@@ -1054,24 +1066,24 @@ void drawDashboard(App& app) {
         dexlib::putClipped(commandY, 2, width - 4, line, t.command);
         curs_set(1);
         move(commandY,
-             clampInt(2 + dexlib::textWidth(line), 
+             clampInt(2 + dexlib::textWidth(line),
                 2, width - 2
              )
         );
-    } 
+    }
     else if (!app.message.empty()) {
         dexlib::putClipped(
-            commandY, 
-            2, 
-            width - 4, 
+            commandY,
+            2,
+            width - 4,
             app.message,
             messageAttr(app)
         );
 
         curs_set(0);
-    } 
+    }
     else {
-        std::string hint = " n new" + sep + "o open";
+        std::string hint = " n new" + sep + "o open" + sep + "r recently files";
         if (!app.recents.empty()) {
             hint += sep + "1-6 recent";
         }
@@ -1136,14 +1148,14 @@ void handlePromptKey(App& app, int key) {
         case KEY_DC:
             deleteInputChar(app.input);
         break;
-        
+
         case KEY_ENTER:
             submitPrompt(app, app.dashboard);
         break;
-        
+
         case KEY_HOME:
         break;
-        
+
         default:
         break;
     }
@@ -1152,7 +1164,7 @@ void handlePromptKey(App& app, int key) {
 void requestQuit(App& app) {
     if (app.ed.modified) {
         setMessage(app, "Unsaved changes — use :w then :q, or :q!", 1);
-    } 
+    }
     else {
         app.running = false;
     }
@@ -1170,19 +1182,19 @@ void handleInsertChar(App& app, wint_t ch) {
         case 7:   /* Ctrl+G */
             app.mode = Mode::Normal;
         return;
-        
+
         case 15:  /* Ctrl+O */
             beginPrompt(app, PromptKind::Open, "Open file: ");
         return;
-        
+
         case 16:  /* Ctrl+P */
             beginPrompt(app, PromptKind::Command, ":");
         return;
-        
+
         case 17:  /* Ctrl+Q */
             requestQuit(app);
         return;
-        
+
         case 19:  /* Ctrl+S */
             if (app.ed.path.empty()) {
                 beginPrompt(app, PromptKind::SaveAs, "Save as: ");
@@ -1197,21 +1209,21 @@ void handleInsertChar(App& app, wint_t ch) {
                 setMessage(app, "Nothing to undo", 0);
             }
         return;
-        
+
         case '\n':
         case '\r':
             insertNewline(app.ed);
         return;
-        
+
         case '\t':
             insertText(app.ed, "\t");
         return;
-        
+
         case 127:
         case 8:
             backspace(app.ed);
         return;
-        
+
         default:
         break;
     }
@@ -1341,48 +1353,48 @@ void handleEditorKey(App& app, int key) {
         case KEY_UP:
             moveVertical(app.ed, -1);
         break;
-        
+
         case KEY_DOWN:
             moveVertical(app.ed, 1);
         break;
-        
+
         case KEY_LEFT:
             moveLeft(app.ed);
         break;
-        
+
         case KEY_RIGHT:
             moveRight(app.ed);
         break;
-        
+
         case KEY_HOME:
             moveHome(app.ed);
         break;
-        
+
         case KEY_END:
             moveEnd(app.ed);
         break;
-        
+
         case KEY_PPAGE:
             for (int i = 0; i < page; ++i) {
                 moveVertical(app.ed, -1);
             }
         break;
-        
+
         case KEY_NPAGE:
             for (int i = 0; i < page; ++i) {
                 moveVertical(app.ed, 1);
             }
         break;
-        
+
         case KEY_BACKSPACE:
             if (app.mode == Mode::Insert) {
                 backspace(app.ed);
-            } 
+            }
             else {
                 moveLeft(app.ed);
             }
         break;
-        
+
         case KEY_DC:
             deleteForward(app.ed);
         break;
@@ -1395,15 +1407,15 @@ void handleEditorKey(App& app, int key) {
                 doSave(app);
             }
         break;
-        
+
         case KEY_F(3):
             beginPrompt(app, PromptKind::Open, "Open file: ");
         break;
-        
+
         case KEY_F(10):
             requestQuit(app);
         break;
-        
+
         default:
         break;
     }
@@ -1419,7 +1431,7 @@ void handleEditorChar(App& app, wint_t ch) {
 
     if (app.mode == Mode::Insert) {
         handleInsertChar(app, ch);
-    } 
+    }
     else {
         handleNormalChar(app, ch);
     }
@@ -1445,6 +1457,10 @@ void handleDashboardChar(App& app, wint_t ch) {
     }
     if (ch == 'q' || ch == 'Q' || ch == 17) {
         app.running = false;
+        return;
+    }
+    if (ch == 'r' || ch == 'R') {
+        dexlib::recentlyFilesWindow(app.recents);
         return;
     }
     if (ch >= '1' && ch <= '9') {
