@@ -205,6 +205,8 @@ std::string baseName(const std::string& path);
 std::string expandUser(const std::string& path);
 std::string absolutePath(const std::string& path);
 
+void recentlyFilesWindow(const std::vector<std::string>& recents);
+
 }  // namespace dexlib
 
 #endif  // DEX_LIB_HPP
